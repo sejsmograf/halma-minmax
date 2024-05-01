@@ -126,6 +126,7 @@ class Board:
             curr_row_width -= 1
 
     def print_board(self):
+
         for row in self.board:
             for field in row:
                 print(field, end=" ")
