@@ -1,16 +1,6 @@
-from typing import NamedTuple
-from enum import Enum
+from typing import NamedTuple, Optional
 from queue import Queue
-
-
-class Color(Enum):
-    EMPTY = 0
-    WHITE = 1
-    BLACK = 2
-
-    def __str__(self) -> str:
-        representations = {Color.EMPTY: ".", Color.WHITE: "1", Color.BLACK: "2"}
-        return representations[self]
+from .field import FieldState, field_state_from_str
 
 
 class PieceMove(NamedTuple):
@@ -19,46 +9,104 @@ class PieceMove(NamedTuple):
 
 
 class Board:
-    directions = [
-        (-1, 0),
-        (1, 0),
-        (0, -1),
-        (0, 1),
-        (-1, -1),
-        (-1, 1),
-        (1, -1),
-        (1, 1),
-    ]
+    BOARD_SIZE = 16
+    INITIAL_ROW_WIDTH = 5
 
-    def __init__(self) -> None:
-        self.size = 16
-        self.board = [[Color.EMPTY for _ in range(self.size)] for _ in range(self.size)]
-        self.initialize_board()
+    # fmt: off
+    CORNERS: dict[tuple[int,int], list[tuple[int,int]]] = { (0,0): 
+       [ (15, 15), (15, 14), (15, 13), (15, 12), (15, 11),
+         (14, 15), (14, 14), (14, 13), (14, 12), (14, 11),
+         (13, 15), (13, 14), (13, 13), (13, 12),
+         (12, 15), (12, 14), (12, 13),
+         (11, 15), (11, 14) ],
+        (1,1): 
+       [ (0, 0), (0, 1), (0, 2), (0, 3), (0, 4),
+         (1, 0), (1, 1), (1, 2), (1, 3), (1, 4),
+         (2, 0), (2, 1), (2, 2), (2, 3),
+         (3, 0), (3, 1), (3, 2),
+         (4, 0), (4, 1)]}
 
-    def get_piece_moves(self, row: int, col: int) -> list[PieceMove]:
-        if self.board[row][col] == Color.EMPTY:
-            return []
+    directions = [ (-1, 0), (1, 0), (0, -1), (0, 1),
+                  (-1, -1), (-1, 1), (1, -1), (1, 1), ]
+    # fmt: on
 
-        adjacent_moves: list[PieceMove] = self.get_adjacent_moves(row, col)
-        jump_moves: list[PieceMove] = self.get_jump_moves(row, col)
+    def __init__(self, board_state: Optional[str] = None) -> None:
+        self.size = Board.BOARD_SIZE
+
+        if board_state is None:
+            self.board = [
+                [FieldState.EMPTY for _ in range(self.size)] for _ in range(self.size)
+            ]
+            self.__initialize_board()
+        else:
+            self.board = self.__parse_board_state(board_state)
+            if self.__count_field_states(FieldState.BLACK) != self.__count_field_states(
+                FieldState.WHITE
+            ):
+                raise ValueError("Not equal piece counts")
+
+    def get_player_moves(self, player_field: FieldState) -> list[PieceMove]:
+        all_moves: list[PieceMove] = []
+
+        for row in range(self.size):
+            for col in range(self.size):
+                if self.board[row][col] == player_field:
+                    all_moves += self.__get_piece_moves(row, col)
+
+        return all_moves
+
+    def __parse_board_state(self, board_state: str) -> list[list[FieldState]]:
+        board_state_rows: list[str] = board_state.splitlines()
+
+        if len(board_state_rows) != self.size:
+            raise ValueError(
+                f"Invalid board state passed: Row count of {len(board_state_rows)} is not equal to board size"
+            )
+
+        board_result: list[list[FieldState]] = []
+        for row in board_state_rows:
+            board_result.append(self.__parse_board_row(row))
+
+        return board_result
+
+    def __count_field_states(self, state: FieldState) -> int:
+        count = 0
+        for i in range(self.size):
+            for j in range(self.size):
+                count += self.board[i][j] == state
+        return count
+
+    def __parse_board_row(self, row: str) -> list[FieldState]:
+        field_strings = row.split(" ")
+        if len(field_strings) != self.size:
+            raise ValueError(f"Invalid length for board row: {len(field_strings)}")
+
+        return [field_state_from_str(s) for s in field_strings]
+
+    def __get_piece_moves(self, row: int, col: int) -> list[PieceMove]:
+        if self.board[row][col] == FieldState.EMPTY:
+            raise ValueError(f"FieldState at {row, col} is empty")
+
+        adjacent_moves: list[PieceMove] = self.__get_adjacent_moves(row, col)
+        jump_moves: list[PieceMove] = self.__get_jump_moves(row, col)
 
         return adjacent_moves + jump_moves
 
-    def get_adjacent_moves(self, row: int, col: int) -> list[PieceMove]:
+    def __get_adjacent_moves(self, row: int, col: int) -> list[PieceMove]:
         moves: list[PieceMove] = []
 
         for dx, dy in Board.directions:
             adj_row = row + dy
             adj_col = col + dx
             if (
-                self.is_within_bounds(adj_row, adj_col)
-                and self.board[adj_row][adj_col] == Color.EMPTY
+                self.__is_within_bounds(adj_row, adj_col)
+                and self.board[adj_row][adj_col] == FieldState.EMPTY
             ):
                 moves.append(PieceMove((row, col), (adj_row, adj_col)))
 
         return moves
 
-    def get_jump_moves(self, row: int, col: int) -> list[PieceMove]:
+    def __get_jump_moves(self, row: int, col: int) -> list[PieceMove]:
         moves: list[PieceMove] = []
 
         to_visit: Queue[tuple[int, int]] = Queue()
@@ -74,16 +122,16 @@ class Board:
                 adj_row = curr_field[0] + dy
                 adj_col = curr_field[1] + dx
                 if (
-                    not self.is_within_bounds(adj_row, adj_col)
-                    or self.board[adj_row][adj_col] == Color.EMPTY
+                    not self.__is_within_bounds(adj_row, adj_col)
+                    or self.board[adj_row][adj_col] == FieldState.EMPTY
                 ):
                     continue
 
                 jump_row = adj_row + dy
                 jump_col = adj_col + dx
                 if (
-                    not self.is_within_bounds(jump_row, jump_col)
-                    or self.board[jump_row][jump_col] != Color.EMPTY
+                    not self.__is_within_bounds(jump_row, jump_col)
+                    or self.board[jump_row][jump_col] != FieldState.EMPTY
                 ):
                     continue
 
@@ -94,39 +142,21 @@ class Board:
 
         return moves
 
-    def is_within_bounds(self, row: int, col: int) -> bool:
+    def __is_within_bounds(self, row: int, col: int) -> bool:
         return row >= 0 and row < self.size and col >= 0 and col < self.size
 
-    def initialize_board(self):
-        self.initialize_corner((0, 0), Color.BLACK)
-        self.initialize_corner((1, 1), Color.WHITE)
+    def __initialize_board(self):
+        self.__initialize_corner((0, 0), FieldState.BLACK)
+        self.__initialize_corner((1, 1), FieldState.WHITE)
 
-    def initialize_corner(self, corner: tuple[int, int], color: Color) -> None:
-        if corner not in ((0, 0), (0, 1), (1, 0), (1, 1)):
-            raise ValueError(f"Invalid corner passed: {corner}")
-
-        top_to_bottom: bool = corner[0] == 0
-        left_to_right: bool = corner[1] == 0
-
-        curr_row_width = 5
-        start_row = 0 if top_to_bottom else self.size - 1
-        start_col = 0 if left_to_right else self.size - 1
-
-        for i in range(curr_row_width):
-            col = start_col + i if left_to_right else start_col - i
-            self.board[start_row][col] = color
-
-        row = start_row
-        while curr_row_width >= 2:
-            row = row + 1 if top_to_bottom else row - 1
-            for i in range(curr_row_width):
-                col = start_col + i if left_to_right else start_col - i
-                self.board[row][col] = color
-
-            curr_row_width -= 1
+    def __initialize_corner(
+        self, corner: tuple[int, int], field_state: FieldState
+    ) -> None:
+        fields = Board.CORNERS[corner]
+        for field in fields:
+            self.board[field[0]][field[1]] = field_state
 
     def print_board(self):
-
         for row in self.board:
             for field in row:
                 print(field, end=" ")
