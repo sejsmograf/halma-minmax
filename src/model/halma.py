@@ -6,5 +6,5 @@ class Halma:
     def __init__(self, board_state: Optional[str] = None) -> None:
         self.board = Board(board_state)
 
-    def print_board(self):
+    def print_board(self) -> None:
         self.board.print_board()

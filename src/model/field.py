@@ -16,7 +16,7 @@ class FieldState(Enum):
 
 
 def field_state_from_str(color_str: str) -> FieldState:
-    if color_str == "0":
+    if color_str == "0" or color_str == ".":
         return FieldState.EMPTY
     elif color_str == "1":
         return FieldState.WHITE
