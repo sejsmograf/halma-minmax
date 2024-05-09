@@ -1,11 +1,9 @@
+from copy import deepcopy
 from typing import NamedTuple, Optional
 from queue import Queue
+
+from .moves import PieceMove, get_player_moves
 from .field import FieldState, field_state_from_str
-
-
-class PieceMove(NamedTuple):
-    from_field: tuple[int, int]
-    to_field: tuple[int, int]
 
 
 class Board:
@@ -13,7 +11,12 @@ class Board:
     INITIAL_ROW_WIDTH = 5
 
     # fmt: off
-    COLOR_CORNER = {
+    PLAYER_GOALS = {
+        FieldState.BLACK: (BOARD_SIZE-1, BOARD_SIZE-1),# bottom right
+        FieldState.WHITE: (0, 0)
+    }
+
+    PLAYER_CORNERS = {
         FieldState.BLACK: (0, 0),
         FieldState.WHITE: (1,1)
     }
@@ -33,35 +36,41 @@ class Board:
          (12, 15), (12, 14), (12, 13),
          (11, 15), (11, 14) ],
     }
-
-    directions = [ (-1, 0), (1, 0), (0, -1), (0, 1),
-                  (-1, -1), (-1, 1), (1, -1), (1, 1), ]
     # fmt: on
 
     def __init__(self, board_state: Optional[str] = None) -> None:
         self.size = Board.BOARD_SIZE
 
         if board_state is None:
-            self.board = [
+            self.board_state = [
                 [FieldState.EMPTY for _ in range(self.size)] for _ in range(self.size)
             ]
             self.__initialize_board()
         else:
-            self.board = self.__parse_board_state(board_state)
+            self.board_state = self.__parse_board_state(board_state)
             if self.__count_field_states(FieldState.BLACK) != self.__count_field_states(
                 FieldState.WHITE
             ):
                 raise ValueError("Not equal piece counts")
 
-    def get_player_moves(self, player_field: FieldState) -> list[PieceMove]:
-        all_moves: list[PieceMove] = []
+    def get_possible_board_states(
+        self,
+        moving_player: FieldState,
+    ) -> list[list[list[FieldState]]]:
+        possible_moves: list[PieceMove] = get_player_moves(
+            self.board_state, moving_player
+        )
 
-        for row in range(self.size):
-            for col in range(self.size):
-                if self.board[row][col] == player_field:
-                    all_moves += self.__get_piece_moves(row, col)
+        return [self.board_state_after_move(move) for move in possible_moves]
 
-        return all_moves
+    def board_state_after_move(self, move: PieceMove) -> list[list[FieldState]]:
+        new_state = deepcopy(self.board_state)
+        from_row, from_col = move.from_field[0], move.from_field[1]
+        to_row, to_col = move.to_field[0], move.to_field[1]
+
+        new_state[to_row][to_col] = self.board_state[from_row][from_col]
+        new_state[from_row][from_col] = FieldState.EMPTY
+        return new_state
 
     def __parse_board_state(self, board_state: str) -> list[list[FieldState]]:
         board_state_rows: list[str] = board_state.splitlines()
@@ -81,7 +90,7 @@ class Board:
         count = 0
         for i in range(self.size):
             for j in range(self.size):
-                count += self.board[i][j] == state
+                count += self.board_state[i][j] == state
         return count
 
     def __parse_board_row(self, row: str) -> list[FieldState]:
@@ -91,80 +100,20 @@ class Board:
 
         return [field_state_from_str(s) for s in field_strings]
 
-    def __get_piece_moves(self, row: int, col: int) -> list[PieceMove]:
-        if self.board[row][col] == FieldState.EMPTY:
-            raise ValueError(f"FieldState at {row, col} is empty")
-
-        adjacent_moves: list[PieceMove] = self.__get_adjacent_moves(row, col)
-        jump_moves: list[PieceMove] = self.__get_jump_moves(row, col)
-
-        return adjacent_moves + jump_moves
-
-    def __get_adjacent_moves(self, row: int, col: int) -> list[PieceMove]:
-        moves: list[PieceMove] = []
-
-        for dx, dy in Board.directions:
-            adj_row = row + dy
-            adj_col = col + dx
-            if (
-                self.__is_within_bounds(adj_row, adj_col)
-                and self.board[adj_row][adj_col] == FieldState.EMPTY
-            ):
-                moves.append(PieceMove((row, col), (adj_row, adj_col)))
-
-        return moves
-
-    def __get_jump_moves(self, row: int, col: int) -> list[PieceMove]:
-        moves: list[PieceMove] = []
-
-        to_visit: Queue[tuple[int, int]] = Queue()
-        visited: set[tuple[int, int]] = set()
-
-        to_visit.put((row, col))
-        visited.add((row, col))
-
-        while not to_visit.empty():
-            curr_field = to_visit.get()
-
-            for dx, dy in Board.directions:
-                adj_row = curr_field[0] + dy
-                adj_col = curr_field[1] + dx
-                if (
-                    not self.__is_within_bounds(adj_row, adj_col)
-                    or self.board[adj_row][adj_col] == FieldState.EMPTY
-                ):
-                    continue
-
-                jump_row = adj_row + dy
-                jump_col = adj_col + dx
-                if (
-                    not self.__is_within_bounds(jump_row, jump_col)
-                    or self.board[jump_row][jump_col] != FieldState.EMPTY
-                ):
-                    continue
-
-                if (jump_row, jump_col) not in visited:
-                    visited.add((jump_row, jump_col))
-                    to_visit.put((jump_row, jump_col))
-                    moves.append(PieceMove((row, col), (jump_row, jump_col)))
-
-        return moves
-
-    def __is_within_bounds(self, row: int, col: int) -> bool:
-        return row >= 0 and row < self.size and col >= 0 and col < self.size
-
     def __initialize_board(self):
         self.__initialize_player(FieldState.BLACK)
         self.__initialize_player(FieldState.WHITE)
 
     def __initialize_player(self, field_state: FieldState) -> None:
-        corner: tuple[int, int] = Board.COLOR_CORNER[field_state]
+        corner: tuple[int, int] = Board.PLAYER_CORNERS[field_state]
         fields = Board.CORNERS[corner]
         for field in fields:
-            self.board[field[0]][field[1]] = field_state
+            self.board_state[field[0]][field[1]] = field_state
 
-    def print_board(self):
-        for row in self.board:
+    def print_board(self, board_state=None):
+        if board_state is None:
+            board_state = self.board_state
+        for row in board_state:
             for field in row:
                 print(field, end=" ")
             print()
