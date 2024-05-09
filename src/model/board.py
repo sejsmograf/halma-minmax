@@ -11,8 +11,8 @@ class Board:
     INITIAL_ROW_WIDTH = 5
 
     # fmt: off
-    PLAYER_GOALS = {
-        FieldState.BLACK: (BOARD_SIZE-1, BOARD_SIZE-1),# bottom right
+    PLAYER_GOAL_CORNERS = {
+        FieldState.BLACK: (BOARD_SIZE-1, BOARD_SIZE-1),
         FieldState.WHITE: (0, 0)
     }
 
@@ -21,7 +21,7 @@ class Board:
         FieldState.WHITE: (1,1)
     }
 
-    CORNERS: dict[tuple[int,int], list[tuple[int,int]]] = {
+    CORNER_CAMP: dict[tuple[int,int], list[tuple[int,int]]] = {
         (0, 0): 
        [ (0, 0), (0, 1), (0, 2), (0, 3), (0, 4),
          (1, 0), (1, 1), (1, 2), (1, 3), (1, 4),
@@ -40,7 +40,6 @@ class Board:
 
     def __init__(self, board_state: Optional[str] = None) -> None:
         self.size = Board.BOARD_SIZE
-        self.previous_move: Optional[PieceMove] = None
 
         if board_state is None:
             self.board_state = [
@@ -49,7 +48,7 @@ class Board:
             self.__initialize_board()
         else:
             self.board_state = self.__parse_board_state(board_state)
-            if self.__count_field_states(FieldState.BLACK) != self.__count_field_states(
+            if self.count_field_states(FieldState.BLACK) != self.count_field_states(
                 FieldState.WHITE
             ):
                 raise ValueError("Not equal piece counts")
@@ -57,19 +56,22 @@ class Board:
     def get_possible_moves(self, moving_player: FieldState) -> list[PieceMove]:
         return get_player_moves(self.board_state, moving_player)
 
+    def get_player_goal_camp(self, player: PieceMove) -> list[tuple[int, int]]:
+        corner = (
+            Board.PLAYER_CORNERS[FieldState.BLACK]
+            if player == FieldState.WHITE
+            else Board.PLAYER_CORNERS[FieldState.WHITE]
+        )
+
+        return Board.CORNER_CAMP[corner]
+
     def make_move(self, move: PieceMove):
-        self.previous_move = move
         from_row, from_col = move.from_field[0], move.from_field[1]
         to_row, to_col = move.to_field[0], move.to_field[1]
-
         self.board_state[to_row][to_col] = self.board_state[from_row][from_col]
         self.board_state[from_row][from_col] = FieldState.EMPTY
 
-    def undo_previous_move(self):
-        if self.previous_move is None:
-            raise ValueError("Undo move called without previous move")
-
-        move = self.previous_move
+    def undo_move(self, move):
         from_row, from_col = move.from_field[0], move.from_field[1]
         to_row, to_col = move.to_field[0], move.to_field[1]
         self.board_state[from_row][from_col] = self.board_state[to_row][to_col]
@@ -77,7 +79,6 @@ class Board:
 
     def __parse_board_state(self, board_state: str) -> list[list[FieldState]]:
         board_state_rows: list[str] = board_state.splitlines()
-
         if len(board_state_rows) != self.size:
             raise ValueError(
                 f"Invalid board state passed: Row count of {len(board_state_rows)} is not equal to board size"
@@ -89,7 +90,7 @@ class Board:
 
         return board_result
 
-    def __count_field_states(self, state: FieldState) -> int:
+    def count_field_states(self, state: FieldState) -> int:
         count = 0
         for i in range(self.size):
             for j in range(self.size):
@@ -109,7 +110,7 @@ class Board:
 
     def __initialize_player(self, field_state: FieldState) -> None:
         corner: tuple[int, int] = Board.PLAYER_CORNERS[field_state]
-        fields = Board.CORNERS[corner]
+        fields = Board.CORNER_CAMP[corner]
         for field in fields:
             self.board_state[field[0]][field[1]] = field_state
 

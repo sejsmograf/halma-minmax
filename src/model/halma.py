@@ -27,6 +27,6 @@ class Halma:
         self.switch_player_turn()
         self.board.make_move(move)
 
-    def undo_move(self):
+    def undo_move(self, move: PieceMove):
         self.switch_player_turn()
-        self.board.undo_previous_move()
+        self.board.undo_move(move)

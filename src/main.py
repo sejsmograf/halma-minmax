@@ -1,3 +1,4 @@
+from time import sleep
 import argparse
 from sys import stdin
 from ai import heuristics, minmax
@@ -28,4 +29,10 @@ if __name__ == "__main__":
 
     h = create_halma_game(args.stdin)
 
-    print(minmax.minmax(h, 2, h.current_player, heuristics.manhattan_distance))
+    while True:
+        print(f"{h.current_player=}")
+        move = minmax.minmax(h, 2, h.current_player, heuristics.manhattan_distance)
+        print(f"{move=}")
+        h.make_move(move[1])
+        h.print_board()
+        print("\n\n")
