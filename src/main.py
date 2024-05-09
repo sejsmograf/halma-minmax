@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     while True:
         print(f"{h.current_player=}")
-        move = minmax.minmax(h, 2, h.current_player, heuristics.manhattan_distance)
+        move = minmax.minmax(h, 1, h.current_player, heuristics.manhattan_distance)
         print(f"{move=}")
         h.make_move(move[1])
         h.print_board()

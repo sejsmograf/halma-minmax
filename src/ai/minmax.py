@@ -7,32 +7,32 @@ from .heuristics import evaluate_board_state
 def minmax(
     halma: Halma,
     depth: int,
-    minimizing_player: FieldState,
-    heuristic: Callable[[int, int, tuple[int, int]], float],
+    maximizing_player: FieldState,
+    heuristic_distance: Callable[[int, int, tuple[int, int]], float],
 ) -> tuple[float, PieceMove]:
 
     if depth == 0:
         return (
-            evaluate_board_state(halma.board, heuristic, minimizing_player),
+            evaluate_board_state(halma.board, maximizing_player, heuristic_distance),
             PieceMove((-1, -1), (-1, -1)),  # return invalid move, it will never be used
         )
 
-    minimize: bool = halma.current_player == minimizing_player
-    best_evaluation = inf if minimize else -inf
+    maximize: bool = halma.current_player == maximizing_player
+    best_evaluation = -inf if maximize else inf
     best_move = None
 
     possible_moves = halma.board.get_possible_moves(halma.current_player)
     for move in possible_moves:
         halma.make_move(move)
-        evaluation, _ = minmax(halma, depth - 1, minimizing_player, heuristic)
+        evaluation, _ = minmax(halma, depth - 1, maximizing_player, heuristic_distance)
         halma.undo_move(move)
 
-        if minimize:
-            if evaluation < best_evaluation:
+        if maximize:
+            if evaluation > best_evaluation:
                 best_evaluation = evaluation
                 best_move = move
         else:
-            if evaluation > best_evaluation:
+            if evaluation < best_evaluation:
                 best_evaluation = evaluation
                 best_move = move
 

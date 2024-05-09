@@ -8,12 +8,21 @@ def manhattan_distance(row: int, col: int, goal: tuple[int, int]) -> float:
 
 def evaluate_board_state(
     board: Board,
-    heuristic: Callable[[int, int, tuple[int, int]], float],
     player: FieldState,
+    heuristic_distance: Callable[[int, int, tuple[int, int]], float],
 ) -> float:
-    goal_corner: tuple[int, int] = Board.PLAYER_GOAL_CORNERS[player]
+    goal_camp: list[tuple[int, int]] = board.get_player_goal_camp(player)
+    goal_position = board.get_goal_position(goal_camp)
+
     player_positions: list[tuple[int, int]] = board.get_player_positions(player)
-    evalutation = sum(
-        [heuristic(row, col, goal_corner) for row, col in player_positions]
-    )
-    return evalutation
+    evaluation = 0
+
+    for row, col in player_positions:
+        # bigger distance means worse score
+        evaluation -= heuristic_distance(row, col, goal_position)
+
+        # give big reward to piecees in goal camp
+        if (row, col) in goal_camp:
+            evaluation += 100
+
+    return evaluation

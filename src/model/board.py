@@ -61,14 +61,21 @@ class Board:
     def get_possible_moves(self, moving_player: FieldState) -> list[PieceMove]:
         return self.get_player_moves(moving_player)
 
-    def get_player_goal_camp(self, player: PieceMove) -> list[tuple[int, int]]:
+    def get_player_goal_camp(self, player: FieldState) -> list[tuple[int, int]]:
         corner = (
             Board.PLAYER_CORNERS[FieldState.BLACK]
             if player == FieldState.WHITE
             else Board.PLAYER_CORNERS[FieldState.WHITE]
         )
-
         return Board.CORNER_CAMP[corner]
+
+    def get_goal_position(
+        self, player_goal_camp: list[tuple[int, int]]
+    ) -> tuple[int, int]:
+        for row, col in player_goal_camp:
+            if self.board_state[row][col] == FieldState.EMPTY:
+                return (row, col)
+        return player_goal_camp[0]
 
     def make_move(self, move: PieceMove):
         from_row, from_col = move.from_field[0], move.from_field[1]
