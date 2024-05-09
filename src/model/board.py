@@ -40,6 +40,7 @@ class Board:
 
     def __init__(self, board_state: Optional[str] = None) -> None:
         self.size = Board.BOARD_SIZE
+        self.previous_move: Optional[PieceMove] = None
 
         if board_state is None:
             self.board_state = [
@@ -53,24 +54,26 @@ class Board:
             ):
                 raise ValueError("Not equal piece counts")
 
-    def get_possible_board_states(
-        self,
-        moving_player: FieldState,
-    ) -> list[list[list[FieldState]]]:
-        possible_moves: list[PieceMove] = get_player_moves(
-            self.board_state, moving_player
-        )
+    def get_possible_moves(self, moving_player: FieldState) -> list[PieceMove]:
+        return get_player_moves(self.board_state, moving_player)
 
-        return [self.board_state_after_move(move) for move in possible_moves]
-
-    def board_state_after_move(self, move: PieceMove) -> list[list[FieldState]]:
-        new_state = deepcopy(self.board_state)
+    def make_move(self, move: PieceMove):
+        self.previous_move = move
         from_row, from_col = move.from_field[0], move.from_field[1]
         to_row, to_col = move.to_field[0], move.to_field[1]
 
-        new_state[to_row][to_col] = self.board_state[from_row][from_col]
-        new_state[from_row][from_col] = FieldState.EMPTY
-        return new_state
+        self.board_state[to_row][to_col] = self.board_state[from_row][from_col]
+        self.board_state[from_row][from_col] = FieldState.EMPTY
+
+    def undo_previous_move(self):
+        if self.previous_move is None:
+            raise ValueError("Undo move called without previous move")
+
+        move = self.previous_move
+        from_row, from_col = move.from_field[0], move.from_field[1]
+        to_row, to_col = move.to_field[0], move.to_field[1]
+        self.board_state[from_row][from_col] = self.board_state[to_row][to_col]
+        self.board_state[to_row][to_col] = FieldState.EMPTY
 
     def __parse_board_state(self, board_state: str) -> list[list[FieldState]]:
         board_state_rows: list[str] = board_state.splitlines()

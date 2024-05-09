@@ -11,7 +11,7 @@ def manhattan_distance(row: int, col: int, goal: tuple[int, int]) -> float:
 def evaluate_board_state(
     board_state: list[list[FieldState]],
     heuristic: Callable[[int, int, tuple[int, int]], float],
-    player: FieldState = FieldState.WHITE,
+    player: FieldState,
 ) -> float:
     goal_corner: tuple[int, int] = Board.PLAYER_GOALS[player]
     player_pieces: list[tuple[int, int]] = get_player_pieces(board_state, player)

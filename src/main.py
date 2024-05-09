@@ -1,9 +1,7 @@
 import argparse
-from model import Halma
 from sys import stdin
-from ai import heuristics
-from model.field import FieldState
-from model.moves import get_player_moves, get_piece_moves, get_player_pieces
+from ai import heuristics, minmax
+from model import Halma
 
 
 def create_halma_game(use_stdin: bool) -> Halma:
@@ -29,9 +27,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     h = create_halma_game(args.stdin)
-    h.print_board()
 
-    for state in h.board.get_possible_board_states(h.PLAYER_ONE):
-        print(heuristics.evaluate_board_state(state, heuristics.manhattan_distance))
-        h.board.print_board(state)
-        print("\n\n\n\n\n\n\n")
+    print(minmax.minmax(h, 2, h.current_player, heuristics.manhattan_distance))
