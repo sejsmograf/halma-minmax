@@ -1,9 +1,12 @@
-from copy import deepcopy
 from typing import NamedTuple, Optional
 from queue import Queue
 
-from .moves import PieceMove, get_player_moves
 from .field import FieldState, field_state_from_str
+
+
+class PieceMove(NamedTuple):
+    from_field: tuple[int, int]
+    to_field: tuple[int, int]
 
 
 class Board:
@@ -36,6 +39,8 @@ class Board:
          (12, 15), (12, 14), (12, 13),
          (11, 15), (11, 14) ],
     }
+    directions = [ (-1, 0), (1, 0), (0, -1), (0, 1),
+        (-1, -1), (-1, 1), (1, -1), (1, 1)]
     # fmt: on
 
     def __init__(self, board_state: Optional[str] = None) -> None:
@@ -54,7 +59,7 @@ class Board:
                 raise ValueError("Not equal piece counts")
 
     def get_possible_moves(self, moving_player: FieldState) -> list[PieceMove]:
-        return get_player_moves(self.board_state, moving_player)
+        return self.get_player_moves(moving_player)
 
     def get_player_goal_camp(self, player: PieceMove) -> list[tuple[int, int]]:
         corner = (
@@ -89,6 +94,90 @@ class Board:
             board_result.append(self.__parse_board_row(row))
 
         return board_result
+
+    def get_player_positions(self, player_field: FieldState) -> list[tuple[int, int]]:
+        positions = []
+        for row in range(self.size):
+            for col in range(self.size):
+                if self.board_state[row][col] == player_field:
+                    positions.append((row, col))
+
+        return positions
+
+    def get_player_moves(self, player_field: FieldState) -> list[PieceMove]:
+        all_moves: list[PieceMove] = []
+        positions = self.get_player_positions(player_field)
+        for row, col in positions:
+            all_moves += self.get_piece_moves(row, col)
+
+        return all_moves
+
+    def get_piece_moves(self, row: int, col: int) -> list[PieceMove]:
+        if self.board_state[row][col] == FieldState.EMPTY:
+            raise ValueError(f"FieldState at {row, col} is empty")
+
+        direct_moves: list[PieceMove] = self.get_direct_moves(row, col)
+        jump_moves: list[PieceMove] = self.get_jump_moves(row, col)
+
+        return direct_moves + jump_moves
+
+    def get_direct_moves(self, row: int, col: int) -> list[PieceMove]:
+        moves: list[PieceMove] = []
+
+        for dx, dy in Board.directions:
+            adj_row = row + dy
+            adj_col = col + dx
+            if (
+                self.is_within_bounds(adj_row, adj_col)
+                and self.board_state[adj_row][adj_col] == FieldState.EMPTY
+            ):
+                moves.append(PieceMove((row, col), (adj_row, adj_col)))
+
+        return moves
+
+    def get_jump_moves(self, row: int, col: int) -> list[PieceMove]:
+        moves: list[PieceMove] = []
+
+        to_visit: Queue[tuple[int, int]] = Queue()
+        visited: set[tuple[int, int]] = set()
+
+        to_visit.put((row, col))
+        visited.add((row, col))
+
+        while not to_visit.empty():
+            curr_field = to_visit.get()
+
+            for dx, dy in Board.directions:
+                adj_row = curr_field[0] + dy
+                adj_col = curr_field[1] + dx
+                if (
+                    not self.is_within_bounds(adj_row, adj_col)
+                    or self.board_state[adj_row][adj_col] == FieldState.EMPTY
+                ):
+                    continue
+
+                jump_row = adj_row + dy
+                jump_col = adj_col + dx
+                if (
+                    not self.is_within_bounds(jump_row, jump_col)
+                    or self.board_state[jump_row][jump_col] != FieldState.EMPTY
+                ):
+                    continue
+
+                if (jump_row, jump_col) not in visited:
+                    visited.add((jump_row, jump_col))
+                    to_visit.put((jump_row, jump_col))
+                    moves.append(PieceMove((row, col), (jump_row, jump_col)))
+
+        return moves
+
+    def is_within_bounds(self, row: int, col: int) -> bool:
+        return (
+            row >= 0
+            and row < len(self.board_state)
+            and col >= 0
+            and col < len(self.board_state)
+        )
 
     def count_field_states(self, state: FieldState) -> int:
         count = 0

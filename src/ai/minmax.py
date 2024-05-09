@@ -1,8 +1,6 @@
 from math import inf
 from typing import Callable, Optional
-from model.halma import Halma
-from model.moves import PieceMove
-from model.field import FieldState
+from model import Halma, PieceMove, FieldState
 from .heuristics import evaluate_board_state
 
 

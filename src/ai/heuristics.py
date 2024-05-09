@@ -1,7 +1,5 @@
 from typing import Callable
-from model.field import FieldState
-from model.moves import get_player_pieces
-from model.board import Board
+from model import Board, FieldState
 
 
 def manhattan_distance(row: int, col: int, goal: tuple[int, int]) -> float:
@@ -14,6 +12,8 @@ def evaluate_board_state(
     player: FieldState,
 ) -> float:
     goal_corner: tuple[int, int] = Board.PLAYER_GOAL_CORNERS[player]
-    player_pieces: list[tuple[int, int]] = get_player_pieces(board.board_state, player)
-    evalutation = sum([heuristic(row, col, goal_corner) for row, col in player_pieces])
+    player_positions: list[tuple[int, int]] = board.get_player_positions(player)
+    evalutation = sum(
+        [heuristic(row, col, goal_corner) for row, col in player_positions]
+    )
     return evalutation

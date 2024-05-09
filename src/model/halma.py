@@ -1,8 +1,7 @@
 from typing import Optional
 
-from model.field import FieldState
-from model.moves import PieceMove
-from .board import Board
+from .field import FieldState
+from .board import Board, PieceMove
 
 
 class Halma:
